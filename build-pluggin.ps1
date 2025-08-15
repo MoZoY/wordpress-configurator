@@ -1,8 +1,8 @@
 # Set variables
 $pluginFolder = "naro-config"
-$outputFolder = "build"
+$buildFolder = "build"
 $mainFile = "$pluginFolder\naro-config.php"
-$versionPrefix = "0.1"
+$versionPrefix = "0.2"
 $versionDate = Get-Date -Format "yyyyMMdd"
 $versionTime = Get-Date -Format "HHmmss"
 $newVersion = "$versionPrefix.$versionDate.$versionTime"
@@ -10,12 +10,25 @@ $newVersion = "$versionPrefix.$versionDate.$versionTime"
 # Update version in PHP file
 (Get-Content $mainFile) -replace '(Version:\s*)([^\r\n]+)', "`${1}$newVersion" | Set-Content $mainFile
 
-# Create ZIP
-$zipName = "$outputFolder\naro-config-$versionPrefix.zip"
-if (-Not (Test-Path $outputFolder)) {
-    New-Item -ItemType Directory -Path $outputFolder
+# Ensure build folder exists
+if (-Not (Test-Path $buildFolder)) {
+    New-Item -ItemType Directory -Path $buildFolder
 }
+
+# Create ZIP
+$zipName = "$buildFolder\naro-config-$versionPrefix.zip"
 if (Test-Path $zipName) { Remove-Item $zipName }
-Compress-Archive -Path $pluginFolder -DestinationPath $zipName
+Compress-Archive -Path $pluginFolder\* -DestinationPath $zipName
+
+# Check for additionnal files to include in the package
+$additionalFiles = "build-includes.txt"
+if (Test-Path $additionalFiles) {
+    $filesToAdd = Get-Content $additionalFiles
+    foreach ($file in $filesToAdd) {
+        if (Test-Path $file) {
+            Compress-Archive -Path $file -Update -DestinationPath $zipName
+        }
+    }
+}
 
 Write-Host "Packaged as $zipName with version $newVersion"
