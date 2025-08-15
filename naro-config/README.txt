@@ -24,7 +24,7 @@ Naro Configurator helps you quickly set up a new WordPress site:
 == Frequently Asked Questions ==
 
 = Can I add my own plugins? =
-Yes, add plugin ZIPs to `naro-config/pluggins/` and they will appear in the admin interface.
+Yes, add plugin ZIPs to `naro-config/plugins/` and they will appear in the admin interface.
 
 == Changelog ==
 

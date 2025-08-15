@@ -2,7 +2,7 @@
 /*
 Plugin Name: Naro Configurator
 Description: Initial WordPress configuration assistant (general settings, permalinks, plugins).
-Version: 0.4.20250816.000505
+Version: 0.5.20250816.004406
 Author: Naro
 */
 
@@ -37,8 +37,8 @@ function naro_config_page() {
         'HelloDolly'     => 'hello-dolly',
     ];
 
-    // Add pro plugins from naro-config/pluggins folder (ZIP support)
-    $pro_plugins_dir = __DIR__ . '/pluggins';
+    // Add pro plugins from naro-config/plugins folder (ZIP support)
+    $pro_plugins_dir = __DIR__ . '/plugins';
     if (is_dir($pro_plugins_dir)) {
         $pro_plugin_zips = glob($pro_plugins_dir . '/*.zip');
         foreach ($pro_plugin_zips as $zip_file) {
@@ -229,7 +229,7 @@ function naro_config_page() {
     $permalink_structure = get_option('permalink_structure');
     ?>
     <div class="wrap">
-        <h1>Naro Wordpress Configurator</h1>
+        <h1>Naro Configurator</h1>
         <form method="post">
             <h2>Settings</h2>
             <table class="form-table">
@@ -263,7 +263,7 @@ function naro_config_page() {
                     <th>Plugin</th>
                     <th>Action</th>
                 </tr>
-                <?php foreach ($plugins as $name => $main_file): 
+                <?php ksort($plugins); foreach ($plugins as $name => $main_file): 
                     $is_installed = isset($all_plugins[$main_file]);
                     $is_active = in_array($main_file, $active_plugins);
                     $selected = 'uninstall';
