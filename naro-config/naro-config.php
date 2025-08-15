@@ -2,7 +2,7 @@
 /*
 Plugin Name: Naro Initial Configurator
 Description: Automates initial WordPress setup (general settings, permalinks, plugins).
-Version: 0.1.20250815.180554
+Version: 0.2.20250815.190237
 Author: Naro
 */
 
@@ -21,7 +21,7 @@ function naro_config_page() {
         wp_die('Unauthorized');
     }
 
-    // List of plugins to manage
+    // List of plugins to manage (default/free plugins)
     $plugins = [
         'Elementor'      => 'elementor/elementor.php',
         'UpdraftBackup'  => 'updraftplus/updraftplus.php',
@@ -29,13 +29,50 @@ function naro_config_page() {
         'HelloDolly'     => 'hello-dolly/hello.php',
     ];
 
-    // Slugs for install
+    // Slugs for install (for WP repo plugins)
     $plugin_slugs = [
         'Elementor'      => 'elementor',
         'UpdraftBackup'  => 'updraftplus',
         'RankMath'       => 'seo-by-rank-math',
         'HelloDolly'     => 'hello-dolly',
     ];
+
+    // Add pro plugins from naro-config/pluggins folder (ZIP support)
+    $pro_plugins_dir = __DIR__ . '/pluggins';
+    if (is_dir($pro_plugins_dir)) {
+        $pro_plugin_zips = glob($pro_plugins_dir . '/*.zip');
+        foreach ($pro_plugin_zips as $zip_file) {
+            $zip = new ZipArchive();
+            if ($zip->open($zip_file) === TRUE) {
+                // Try to find the main plugin file in the ZIP
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $entry = $zip->getNameIndex($i);
+                    if (preg_match('#^[^/]+/[^/]+\.php$#', $entry)) {
+                        // Extract to temp and read plugin data
+                        $tmp_dir = sys_get_temp_dir() . '/naro_plugin_' . uniqid();
+                        mkdir($tmp_dir);
+                        $zip->extractTo($tmp_dir, $entry);
+                        $plugin_file_path = $tmp_dir . '/' . $entry;
+                        if (file_exists($plugin_file_path)) {
+                            $plugin_data = get_plugin_data($plugin_file_path, false, false);
+                            if (!empty($plugin_data['Name'])) {
+                                $plugin_folder = explode('/', $entry)[0];
+                                $plugin_main_file = $plugin_folder . '/' . basename($entry);
+                                $plugins[$plugin_data['Name']] = $plugin_main_file;
+                                // No slug for pro plugins
+                                break;
+                            }
+                        }
+                        // Clean up temp
+                        if (file_exists($plugin_file_path)) unlink($plugin_file_path);
+                        rmdir($tmp_dir . '/' . $plugin_folder);
+                        rmdir($tmp_dir);
+                    }
+                }
+                $zip->close();
+            }
+        }
+    }
 
     // Get installed plugins and active plugins
     include_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -71,13 +108,43 @@ function naro_config_page() {
 
         foreach ($plugins as $name => $main_file) {
             $action = $_POST['plugin_action'][$name] ?? 'uninstall';
-            $slug = $plugin_slugs[$name];
+            $slug = $plugin_slugs[$name] ?? null;
 
             $is_installed = isset($all_plugins[$main_file]);
             $is_active = in_array($main_file, $active_plugins);
 
+            // Check if this is a pro plugin (no slug)
+            $is_pro = !isset($plugin_slugs[$name]);
+
             if ($action === 'install' || $action === 'install_activate') {
-                if (!$is_installed) {
+                if (!$is_installed && $is_pro) {
+                    // Find the ZIP file for this pro plugin
+                    $zip_file = null;
+                    foreach (glob($pro_plugins_dir . '/*.zip') as $zf) {
+                        $zip = new ZipArchive();
+                        if ($zip->open($zf) === TRUE) {
+                            for ($i = 0; $i < $zip->numFiles; $i++) {
+                                $entry = $zip->getNameIndex($i);
+                                if (strpos($entry, $main_file) !== false) {
+                                    $zip_file = $zf;
+                                    break 2;
+                                }
+                            }
+                            $zip->close();
+                        }
+                    }
+                    if ($zip_file) {
+                        // Unpack ZIP to wp-content/plugins
+                        $zip = new ZipArchive();
+                        if ($zip->open($zip_file) === TRUE) {
+                            $zip->extractTo(WP_PLUGIN_DIR);
+                            $zip->close();
+                        }
+                        // Refresh plugin list after install
+                        $all_plugins = get_plugins();
+                    }
+                }
+                if (($action === 'install' || $action === 'install_activate') && !$is_pro && !$is_installed) {
                     $api = plugins_api('plugin_information', array('slug' => $slug));
                     $upgrader = new Plugin_Upgrader();
                     $upgrader->install($api->download_link);
