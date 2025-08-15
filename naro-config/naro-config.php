@@ -2,7 +2,7 @@
 /*
 Plugin Name: Naro Configurator
 Description: Initial WordPress configuration assistant (general settings, permalinks, plugins).
-Version: 0.3.20250815.192148
+Version: 0.4.20250816.000505
 Author: Naro
 */
 
@@ -169,8 +169,50 @@ function naro_config_page() {
             }
         }
 
+        if (isset($_POST['theme_action']) && is_array($_POST['theme_action'])) {
+            // --- Theme Management Actions ---
+            include_once ABSPATH . 'wp-admin/includes/theme.php';
+            include_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+            $installed_themes = wp_get_themes();
+            $current_theme = wp_get_theme();
+            $hello_slug = 'hello-elementor';
+
+            foreach ($_POST['theme_action'] as $slug => $action) {
+                $is_installed = isset($installed_themes[$slug]);
+                $is_active = ($current_theme->get_stylesheet() === $slug);
+
+                // Only act if the requested action does not match the current state
+                if ($action === 'install' && !$is_installed) {
+                    // Install theme from WP repo
+                    $upgrader = new Theme_Upgrader();
+                    $upgrader->install("https://downloads.wordpress.org/theme/{$slug}.latest.zip");
+                } elseif ($action === 'install_activate') {
+                    if (!$is_installed) {
+                        $upgrader = new Theme_Upgrader();
+                        $upgrader->install("https://downloads.wordpress.org/theme/{$slug}.latest.zip");
+                        // Refresh theme list after install
+                        $installed_themes = wp_get_themes();
+                    }
+                    if (!$is_active && isset($installed_themes[$slug])) {
+                        switch_theme($slug);
+                    }
+                } elseif ($action === 'uninstall' && $is_installed && !$is_active) {
+                    // Only uninstall if not active
+                    delete_theme($slug);
+                } elseif ($action === 'uninstall_deactivate' && $is_installed) {
+                    if ($is_active) {
+                        // Switch to default theme before deleting
+                        switch_theme(WP_DEFAULT_THEME);
+                        $current_theme = wp_get_theme();
+                    }
+                    // Now delete
+                    delete_theme($slug);
+                }
+            }
+        }
+
         echo '<div class="updated"><p>Configuration applied!</p></div>';
-        // Refresh plugin state after changes
+        // Refresh plugin and theme state after changes
         $all_plugins = get_plugins();
         $active_plugins = get_option('active_plugins', []);
     }
@@ -210,8 +252,8 @@ function naro_config_page() {
                 <tr>
                     <th><label for="custom_presets">French Presets</label></th>
                     <td>
-                        <input type="checkbox" id="custom_presets" name="custom_presets" value="1" <?php checked($site_lang === 'fr_FR' && $timezone === 'Europe/Paris' && $date_format === 'j F Y' && $time_format === 'G\hi' && $permalink_structure === '%postname%'); ?> />
-                        <span class="description">Site Language: Français, Timezone: Paris, Date Format: j F Y, Time Format: G\hi, Permalink Structure: %postname%</span>
+                        <input type="checkbox" id="custom_presets" name="custom_presets" value="1" <?php checked($site_lang === 'fr_FR' && $timezone === 'Europe/Paris' && $date_format === 'j F Y' && $time_format === 'G\hi' && $permalink_structure === '/%postname%/'); ?> />
+                        <span class="description">Site Language: Français, Timezone: Paris, Date Format: j F Y, Time Format: G\hi, Permalink Structure: /%postname%/</span>
                     </td>
                 </tr>
             </table>
@@ -239,6 +281,63 @@ function naro_config_page() {
                             <option value="install_activate" <?php selected($selected, 'install_activate'); ?>>Install & Activate</option>
                             <option value="uninstall" <?php selected($selected, 'uninstall'); ?>>Uninstall</option>
                             <option value="deactivate" <?php selected($selected, 'deactivate'); ?>>Deactivate</option>
+                        </select>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php
+            // Theme Management Section
+            include_once ABSPATH . 'wp-admin/includes/theme.php';
+            $installed_themes = wp_get_themes();
+            $current_theme = wp_get_theme();
+            $themes = [];
+
+            // Add installed themes
+            foreach ($installed_themes as $theme_slug => $theme_obj) {
+                $themes[$theme_slug] = [
+                    'Name' => $theme_obj->get('Name'),
+                    'Slug' => $theme_slug,
+                    'Installed' => true,
+                    'Active' => ($current_theme->get_stylesheet() === $theme_slug),
+                ];
+            }
+
+            // Always add Elementor Hello theme (show even if not installed)
+            $hello_slug = 'hello-elementor';
+            if (!isset($themes[$hello_slug])) {
+                $themes[$hello_slug] = [
+                    'Name' => 'Hello Elementor',
+                    'Slug' => $hello_slug,
+                    'Installed' => false,
+                    'Active' => false,
+                ];
+            }
+            ?>
+
+            <h2>Theme Management</h2>
+            <table class="form-table">
+                <tr>
+                    <th>Theme</th>
+                    <th>Action</th>
+                </tr>
+                <?php foreach ($themes as $slug => $theme): 
+                    // Determine preselected option
+                    $selected = 'uninstall';
+                    if ($theme['Installed'] && $theme['Active']) {
+                        $selected = 'install_activate';
+                    } elseif ($theme['Installed'] && !$theme['Active']) {
+                        $selected = 'uninstall_deactivate';
+                    }
+                ?>
+                <tr>
+                    <td><?php echo esc_html($theme['Name']); ?></td>
+                    <td>
+                        <select name="theme_action[<?php echo esc_attr($slug); ?>]">
+                            <option value="install" <?php selected($selected, 'install'); ?>>Install</option>
+                            <option value="install_activate" <?php selected($selected, 'install_activate'); ?>>Install & Activate</option>
+                            <option value="uninstall" <?php selected($selected, 'uninstall'); ?>>Uninstall</option>
+                            <option value="uninstall_deactivate" <?php selected($selected, 'uninstall_deactivate'); ?>>Uninstall & Deactivate</option>
                         </select>
                     </td>
                 </tr>
