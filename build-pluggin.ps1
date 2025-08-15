@@ -2,7 +2,7 @@
 $pluginFolder = "naro-config"
 $buildFolder = "build"
 $mainFile = "$pluginFolder\naro-config.php"
-$versionPrefix = "0.2"
+$versionPrefix = "0.3"
 $versionDate = Get-Date -Format "yyyyMMdd"
 $versionTime = Get-Date -Format "HHmmss"
 $newVersion = "$versionPrefix.$versionDate.$versionTime"

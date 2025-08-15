@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: Naro Initial Configurator
-Description: Automates initial WordPress setup (general settings, permalinks, plugins).
-Version: 0.2.20250815.190237
+Plugin Name: Naro Configurator
+Description: Initial WordPress configuration assistant (general settings, permalinks, plugins).
+Version: 0.3.20250815.192148
 Author: Naro
 */
 
@@ -96,11 +96,12 @@ function naro_config_page() {
         if (isset($_POST['admin_email'])) {
             update_option('admin_email', sanitize_email($_POST['admin_email']));
         }
-        if (!empty($_POST['french_presets'])) {
+        if (!empty($_POST['custom_presets'])) {
             update_option('WPLANG', 'fr_FR');
             update_option('timezone_string', 'Europe/Paris');
             update_option('date_format', 'j F Y');
             update_option('time_format', 'G\hi');
+            update_option('permalink_structure', '/%postname%/'); // Set permalink structure
         }
 
         include_once ABSPATH . 'wp-admin/includes/plugin-install.php';
@@ -183,9 +184,10 @@ function naro_config_page() {
     $timezone = get_option('timezone_string');
     $date_format = get_option('date_format');
     $time_format = get_option('time_format');
+    $permalink_structure = get_option('permalink_structure');
     ?>
     <div class="wrap">
-        <h1>Naro Initial Configurator</h1>
+        <h1>Naro Wordpress Configurator</h1>
         <form method="post">
             <h2>Settings</h2>
             <table class="form-table">
@@ -206,10 +208,10 @@ function naro_config_page() {
                     <td><input type="email" id="admin_email" name="admin_email" value="<?php echo esc_attr($admin_email); ?>" class="regular-text" /></td>
                 </tr>
                 <tr>
-                    <th><label for="french_presets">French Presets</label></th>
+                    <th><label for="custom_presets">French Presets</label></th>
                     <td>
-                        <input type="checkbox" id="french_presets" name="french_presets" value="1" <?php checked($site_lang === 'fr_FR' && $timezone === 'Europe/Paris' && $date_format === 'j F Y' && $time_format === 'G\hi'); ?> />
-                        <span class="description">Site Language: Français, Timezone: Paris, Date Format: j F Y, Time Format: G\hi</span>
+                        <input type="checkbox" id="custom_presets" name="custom_presets" value="1" <?php checked($site_lang === 'fr_FR' && $timezone === 'Europe/Paris' && $date_format === 'j F Y' && $time_format === 'G\hi' && $permalink_structure === '%postname%'); ?> />
+                        <span class="description">Site Language: Français, Timezone: Paris, Date Format: j F Y, Time Format: G\hi, Permalink Structure: %postname%</span>
                     </td>
                 </tr>
             </table>
